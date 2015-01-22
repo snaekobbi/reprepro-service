@@ -1,0 +1,2 @@
+deb     http://reprepro/debian testing main contrib non-free
+deb-src http://reprepro/debian testing main contrib non-free

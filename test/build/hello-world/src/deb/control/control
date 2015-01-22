@@ -1,0 +1,7 @@
+Package: [[name]]
+Version: [[version]]
+Section: text
+Priority: optional
+Architecture: all
+Maintainer: Bert Frees <bertfrees@gmail.com>
+Description: [[description]]
