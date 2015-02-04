@@ -20,11 +20,12 @@ check : image
 	sleep 10
 	id=$$(uuidgen|tr A-Z a-z) && \
 	    $(DOCKER) build -t $${id} test/build && \
-	    $(DOCKER) run -v $(CURDIR)/test/build/repository:/root/.m2/repository \
-	                  --rm \
+	    $(DOCKER) run -d \
+	                  -v $(CURDIR)/test/build/repository:/root/.m2/repository \
 	                  --link $$(cat test/nexus.cid | xargs docker inspect --format='{{.Name}}'):nexus \
+	                  --cidfile test/build.cid \
 	                  $${id} \
-	                  /bin/bash -c "mvn deploy -f /tmp/hello-world/pom.xml"
+	                  bash -c "trap exit TERM; tail -f & wait"
 	rm -rf test/pool test/var
 	mkdir -p test/var/log
 	touch test/var/log/update-repo.log
@@ -35,15 +36,34 @@ check : image
 	              -v $(CURDIR)/test/pool:/var/packages/debian/pool \
 	              -v $(CURDIR)/test/repository:/root/.m2/repository \
 	              --link $$(cat test/nexus.cid | xargs docker inspect --format='{{.Name}}'):nexus \
-	              --name reprepro \
-	              $(TAG)
-	$(DOCKER) exec reprepro /update-repo/bin/update-repo.sh
+	              --cidfile test/reprepro.cid \
+	              $(TAG) \
+	              bash -c "service apache2 start; trap exit TERM; tail -f & wait"
 	id=$$(uuidgen|tr A-Z a-z) && \
 	    $(DOCKER) build -t $${id} test/install && \
-	    $(DOCKER) run --rm \
-	                  --link reprepro:reprepro \
+	    $(DOCKER) run -d \
+	                  --link $$(cat test/reprepro.cid | xargs docker inspect --format='{{.Name}}'):reprepro \
+	                  --cidfile test/install.cid \
 	                  $${id} \
-	                  /bin/bash -c "apt-get update && apt-get install -y --force-yes hello-world"
-	$(DOCKER) stop reprepro $$(cat test/nexus.cid)
-	$(DOCKER) rm reprepro $$(cat test/nexus.cid)
-	rm test/nexus.cid
+	                  bash -c "trap exit TERM; tail -f & wait"
+	$(DOCKER) exec $$(cat test/build.cid) mvn deploy -f /tmp/hello-world/pom.xml
+	sleep 3
+	$(DOCKER) exec $$(cat test/reprepro.cid) /update-repo/bin/update-repo.sh
+	sleep 3
+	$(DOCKER) exec $$(cat test/install.cid) bash -c "apt-get update; apt-get install -y --force-yes hello-world"
+	$(DOCKER) exec $$(cat test/reprepro.cid) /update-repo/bin/update-repo.sh
+	sleep 3
+	$(DOCKER) exec $$(cat test/install.cid) apt-get update
+	test $$( $(DOCKER) exec $$(cat test/install.cid) bash -c \
+	    "apt-cache policy hello-world | sed -n 's/^ *\(Installed\|Candidate\): *//p' | uniq" | wc -l ) = 1
+	$(DOCKER) exec $$(cat test/build.cid) mvn deploy -f /tmp/hello-world/pom.xml
+	sleep 3
+	$(DOCKER) exec $$(cat test/reprepro.cid) /update-repo/bin/update-repo.sh
+	sleep 3
+	$(DOCKER) exec $$(cat test/install.cid) apt-get update
+	test $$( $(DOCKER) exec $$(cat test/install.cid) bash -c \
+	    "apt-cache policy hello-world | sed -n 's/^ *\(Installed\|Candidate\): *//p' | uniq" | wc -l ) = 2
+	$(DOCKER) exec $$(cat test/install.cid) apt-get install -y --force-yes hello-world
+	$(DOCKER) stop $$(paste test/*.cid)
+	$(DOCKER) rm $$(paste test/*.cid)
+	rm test/*.cid

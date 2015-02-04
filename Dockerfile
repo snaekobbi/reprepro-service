@@ -1,12 +1,11 @@
 FROM        ubuntu:trusty
 RUN         apt-get update
-RUN         apt-get install -y reprepro apache2 maven xsltproc wget
+RUN         apt-get install -y reprepro apache2 maven libsaxonb-java wget
 ADD         src/reprepro.conf /etc/apache2/sites-available/reprepro.conf
 ADD         src/index.html /var/packages/index.html
 RUN         a2dissite 000-default
 RUN         a2ensite reprepro
 ADD         src/distributions /var/packages/debian/conf/distributions
-ADD         src/maven-metadata-to-versions.xsl /update-repo/bin/maven-metadata-to-versions.xsl
 ADD         src/update-repo.sh /update-repo/bin/update-repo.sh
 RUN         mkdir -p /update-repo/etc /update-repo/var/log
 RUN         touch /update-repo/etc/REPOSITORIES /update-repo/etc/ARTIFACTS /update-repo/var/log/update-repo.log
