@@ -13,4 +13,4 @@ RUN         touch /update-repo/etc/REPOSITORIES /update-repo/etc/ARTIFACTS /upda
 RUN         chmod +x /update-repo/bin/update-repo.sh
 ADD         src/crons.conf /tmp/crons.conf
 RUN         crontab /tmp/crons.conf
-ENTRYPOINT  ["/bin/bash", "-c", "service apache2 start && cron && mkdir -p /update-repo/var/log && touch /update-repo/var/log/update-repo.log && tail -f /update-repo/var/log/update-repo.log"]
+CMD         service apache2 start && cron && tail -f /update-repo/var/log/update-repo.log

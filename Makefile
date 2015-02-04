@@ -26,6 +26,8 @@ check : image
 	                  $${id} \
 	                  /bin/bash -c "mvn deploy -f /tmp/hello-world/pom.xml"
 	rm -rf test/pool test/var
+	mkdir -p test/var/log
+	touch test/var/log/update-repo.log
 	$(DOCKER) run -d \
 	              -e 80 \
 	              -v $(CURDIR)/test/var:/update-repo/var \
